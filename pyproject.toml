@@ -19,7 +19,7 @@ dependencies = [
     "packaging",
     "sounddevice",
     "pyaudio",
-    "pydub",
+    "soundfile",
     "opencv-python"
 ]
 

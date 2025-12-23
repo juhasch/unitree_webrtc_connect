@@ -5,12 +5,11 @@ import time
 import uuid
 import os
 import hashlib
-from pydub import AudioSegment
+import soundfile as sf
 from unitree_webrtc_connect.constants import AUDIO_API
 from unitree_webrtc_connect.webrtc_driver import UnitreeWebRTCConnection
 import asyncio
 
-CHUNK_SIZE = 61440
 
 class WebRTCAudioHub:
     def __init__(self, connection: UnitreeWebRTCConnection, logger: logging.Logger = None):
@@ -121,12 +120,18 @@ class WebRTCAudioHub:
         """Upload audio file (MP3 or WAV)"""
         # Convert MP3 to WAV if necessary
         if audiofile_path.endswith(".mp3"):
-            self.logger.info("Converting MP3 to WAV")
-            audio = AudioSegment.from_mp3(audiofile_path)
-            # Set specific audio parameters for compatibility
-            audio = audio.set_frame_rate(44100)  # Standard sample rate
+            self.logger.debug("Converting MP3 to WAV")
+            # Read MP3 file
+            data, sample_rate = sf.read(audiofile_path)
+            if sample_rate != 44100:
+                from scipy import signal
+                # Calculate resampling ratio
+                resample_ratio = 44100 / sample_rate
+                # Resample the audio data
+                data = signal.resample(data, int(len(data) * resample_ratio))
+            # Save as WAV file
             wav_file_path = audiofile_path.replace('.mp3', '.wav')
-            audio.export(wav_file_path, format='wav', parameters=["-ar", "44100"])
+            sf.write(wav_file_path, data, 44100)
         else:
             wav_file_path = audiofile_path
         
@@ -164,7 +169,7 @@ class WebRTCAudioHub:
                     'file_md5': file_md5,
                     'create_time': int(time.time() * 1000)
                 }
-                print(json.dumps(parameter, ensure_ascii=True))
+
                 # Send the chunk
                 self.logger.info(f"Sending chunk {i}/{total_chunks}")
                 
@@ -245,7 +250,7 @@ class WebRTCAudioHub:
                     'current_block_index': i,
                     'total_block_number': total_chunks
                 }
-                print(json.dumps(parameter, ensure_ascii=True))
+
                 # Send the chunk
                 self.logger.info(f"Sending chunk {i}/{total_chunks}")
                 
